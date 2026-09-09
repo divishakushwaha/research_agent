@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Paper Research Agent</title>
+    <link rel="stylesheet" href="c.css?v=2">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Paper Research Agent</h1>
+            <p class="subtitle">An automated research platform designed to discover, summarize, and evaluate academic literature and research publications.Fill in your paper title to be searched and questions can be asked after searching.</p>
+        </header>
+
+        <div class="section-block">
+            <label class="section-title" for="search-input">Search Papers</label>
+            <p class="section-desc">Search for academic topics or full paper titles to automatically retrieve relevant studies, summaries, and credibility insights.</p>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search Full Paper Title or Abstract">
+                <button id="search-button">Search</button>
+            </div>
+        </div>
+
+        <div id="status-message"></div>
+
+        <div id="exact-match-section" class="hidden">
+            <h2>Exact match found</h2>
+            <div id="exact-match-card"></div>
+        </div>
+
+        <div id="results-section" class="hidden">
+            <h2 id="results-heading">Results</h2>
+            <div id="results-list"></div>
+        </div>
+
+        <div id="qa-section" class="section-block hidden">
+            <label class="section-title" for="question-input">Ask Questions</label>
+            <p class="section-desc">Query the analyzed research papers to extract specific methodologies, findings, or comparison details across results.</p>
+            <div class="search-bar">
+                <input type="text" id="question-input" placeholder="e.g. which papers used pose estimation?">
+                <button id="ask-button">Ask</button>
+            </div>
+            <div id="answer-box"></div>
+        </div>
+    </div>
+
+    <script src="j.js"></script>
+</body>
+</html>
