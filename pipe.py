@@ -438,11 +438,22 @@ def summarize_paper(client: Groq, paper: dict) -> dict:
         }
     return structured
 
+class DummyEmbeddingFunction:
+    """
+    Prevents ChromaDB from downloading heavy AI models into Render's limited RAM.
+    Returns a tiny empty vector since we rely on full retrieval for Groq anyway.
+    """
+    def __call__(self, input_texts):
+        return [[0.0] * 10 for _ in input_texts]
+
 def get_collection():
     db_client = chromadb.EphemeralClient(
         settings=Settings(anonymized_telemetry=False)
     )
-    return db_client.get_or_create_collection(name=COLLECTION_NAME)
+    return db_client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        embedding_function=DummyEmbeddingFunction()
+    )
 
 
 def store_summaries(papers_with_summaries: list):
