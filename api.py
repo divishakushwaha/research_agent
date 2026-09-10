@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import os
+import uuid
 
 from pipe import run_smart_search_and_store, query_papers
 
@@ -13,8 +14,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
-    allow_headers=["*"],
-)
+    allow_headers=["*"],)
+jobs = {}
 
 
 class SearchRequest(BaseModel):
@@ -25,14 +26,40 @@ class AskRequest(BaseModel):
     question: str
 
 
+def run_search_job(job_id: str, query: str):
+    """This runs in the background, AFTER the /search endpoint has
+    already responded to the browser. It does the actual slow work.
+    """
+    try:
+        result = run_smart_search_and_store(query)
+        jobs[job_id] = {"status": "done", "result": result}
+    except Exception as e:
+        jobs[job_id] = {"status": "error", "detail": str(e)}
+
+
 @app.post("/search")
-def search(request: SearchRequest):
+def start_search(request: SearchRequest, background_tasks: BackgroundTasks):
+    """Starts a search WITHOUT waiting for it to finish. Returns a job_id
+    immediately - the actual pipeline runs in the background via
+    background_tasks.add_task(), which FastAPI executes after this
+    function returns its response.
+    """
     if not request.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
-    try:
-        return run_smart_search_and_store(request.query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"status": "running"}
+    background_tasks.add_task(run_search_job, job_id, request.query)
+    return {"job_id": job_id}
+
+
+@app.get("/search-status/{job_id}")
+def get_search_status(job_id: str):
+    """The frontend calls this repeatedly to check whether a job is done."""
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job
 
 
 @app.post("/ask")
@@ -67,3 +94,4 @@ def serve_css():
 @app.get("/j.js")
 def serve_js():
     return FileResponse(os.path.join(FRONTEND_DIR, "j.js"))
+
