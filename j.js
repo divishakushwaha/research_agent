@@ -13,6 +13,8 @@ const questionInput = document.getElementById("question-input");
 const askButton = document.getElementById("ask-button");
 const answerBox = document.getElementById("answer-box");
 
+let pollInterval = null;
+
 function credibilityBadge(score) {
     if (score >= 7) return { label: "High Credibility", color: "green" };
     if (score >= 4) return { label: "Moderate Credibility", color: "orange" };
@@ -84,10 +86,12 @@ async function performSearch() {
     searchButton.disabled = true;
     exactMatchSection.classList.add("hidden");
     resultsSection.classList.add("hidden");
-    qaSection.classList.add("hidden");
-    showStatus(`Searching for "${query}"... this takes a few minutes.`, "loading");
+    showStatus(`Searching for "${query}"... starting search job.`, "loading");
+
+    if (pollInterval) clearInterval(pollInterval);
 
     try {
+        // Step 1: Start the search job
         const response = await fetch(`${API_BASE}/search`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -96,16 +100,45 @@ async function performSearch() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.detail || "Search failed.");
+            throw new Error(errorData.detail || "Failed to start search.");
         }
 
-        const result = await response.json();
-        clearStatus();
-        displayResults(result);
+        const data = await response.json();
+        const jobId = data.job_id;
+
+        showStatus(`Searching for "${query}"... analyzing literature in background.`, "loading");
+
+        // Step 2: Poll /search-status/{job_id} every 3 seconds
+        pollInterval = setInterval(async () => {
+            try {
+                const statusResponse = await fetch(`${API_BASE}/search-status/${jobId}`);
+
+                if (!statusResponse.ok) {
+                    throw new Error("Failed to fetch search status.");
+                }
+
+                const jobStatus = await statusResponse.json();
+
+                if (jobStatus.status === "completed") {
+                    clearInterval(pollInterval);
+                    clearStatus();
+                    searchButton.disabled = false;
+                    displayResults(jobStatus.result);
+                } else if (jobStatus.status === "failed") {
+                    clearInterval(pollInterval);
+                    searchButton.disabled = false;
+                    showStatus(`Error: ${jobStatus.error || "Search failed."}`, "error");
+                }
+            } catch (err) {
+                clearInterval(pollInterval);
+                searchButton.disabled = false;
+                showStatus(`Error: ${err.message}`, "error");
+            }
+        }, 3000);
+
     } catch (err) {
-        showStatus(`Error: ${err.message}`, "error");
-    } finally {
         searchButton.disabled = false;
+        showStatus(`Error: ${err.message}`, "error");
     }
 }
 
@@ -163,3 +196,4 @@ searchButton.addEventListener("click", performSearch);
 searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") performSearch(); });
 askButton.addEventListener("click", performAsk);
 questionInput.addEventListener("keydown", (e) => { if (e.key === "Enter") performAsk(); });
+
