@@ -438,10 +438,9 @@ def summarize_paper(client: Groq, paper: dict) -> dict:
         }
     return structured
 
-
 def get_collection():
-    db_client = chromadb.PersistentClient(
-        path=DB_PATH, settings=Settings(anonymized_telemetry=False)
+    db_client = chromadb.EphemeralClient(
+        settings=Settings(anonymized_telemetry=False)
     )
     return db_client.get_or_create_collection(name=COLLECTION_NAME)
 
