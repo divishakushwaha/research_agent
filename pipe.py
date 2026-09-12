@@ -14,8 +14,8 @@ from groq import Groq
 LLM_MODEL = "openai/gpt-oss-120b"
 DB_PATH = "paper_db"
 COLLECTION_NAME = "paper_summaries"
-MAX_RESULTS = 15
-TOP_N_PAPERS = 10  # how many top-ranked papers to keep after scoring
+MAX_RESULTS = 7
+TOP_N_PAPERS = 5 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
 OPENALEX_API = "https://api.openalex.org/works"
 CROSSREF_API = "https://api.crossref.org/works"
@@ -278,20 +278,12 @@ def get_credibility_info(paper: dict) -> dict:
     cr = _query_crossref(title)
 
     sources_found = sum(x is not None for x in [s2, oa, cr])
-
-    # Take whichever citation counts are available (could be 0, 1, or 2)
-    citation_counts = [
-        x["citation_count"] for x in [s2, oa]
-        if x is not None and x.get("citation_count") is not None
-    ]
-
-    # Use the average of available counts (not just picking one source
-    # arbitrarily) as the working citation count for scoring.
-    citation_count = round(sum(citation_counts) / len(citation_counts)) if citation_counts else None
-
-    # Flag if the two sources disagree substantially (>2x apart) - this
-    # is shown to the user rather than silently hidden, since a big
-    # disagreement means the "true" citation count is genuinely uncertain.
+    if s2 is not None and s2.get("citation_count") is not None:
+        citation_count = s2["citation_count"]
+    elif oa is not None and oa.get("citation_count") is not None:
+        citation_count = oa["citation_count"]
+    else:
+        citation_count = None
     citation_disagreement = None
     if len(citation_counts) == 2 and max(citation_counts) > 0:
         ratio = max(citation_counts) / max(min(citation_counts), 1)
